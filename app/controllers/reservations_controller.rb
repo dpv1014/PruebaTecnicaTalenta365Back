@@ -3,7 +3,11 @@ class ReservationsController < ApplicationController
 
   # GET /reservations
   def index
-    @reservations = Reservation.all
+    if !params[:date_start].blank? && !params[:date_end].blank?
+      @reservations = Reservation.include_user_by_day(params[:date_start], params[:date_end])
+    else
+      @reservations = Reservation.include_user
+    end
 
     render json: @reservations
   end
@@ -15,21 +19,29 @@ class ReservationsController < ApplicationController
 
   # POST /reservations
   def create
-    @reservation = Reservation.new(reservation_params)
+    begin
+      User.transaction do
+        @user = User.find_or_create_by(id_number: params[:id_number])
+        @user.name = params[:name]
+        @user.cellphone = params[:cellphone]
+        @user.email = params[:email]
 
-    if @reservation.save
-      render json: @reservation, status: :created, location: @reservation
-    else
-      render json: @reservation.errors, status: :unprocessable_entity
-    end
-  end
-
-  # PATCH/PUT /reservations/1
-  def update
-    if @reservation.update(reservation_params)
-      render json: @reservation
-    else
-      render json: @reservation.errors, status: :unprocessable_entity
+        if @user.save
+          @reservation = Reservation.new({
+             user_id: @user.id,
+             movie_id: params[:movie_id]
+          })
+          if @reservation.save
+            render json: {user: @user, reservation: @reservation}, status: :created, location: @reservation
+          else
+            render json: @reservation.errors, status: :unprocessable_entity
+          end
+        else
+          render json: @user.errors, status: :unprocessable_entity
+        end
+      end
+    rescue
+      render json: ["Se ha presentado un error. Intentelo de nuevo"], status: :unprocessable_entity
     end
   end
 
@@ -44,8 +56,4 @@ class ReservationsController < ApplicationController
       @reservation = Reservation.find(params[:id])
     end
 
-    # Only allow a trusted parameter "white list" through.
-    def reservation_params
-      params.require(:reservation).permit(:movie_id, :user_id)
-    end
 end

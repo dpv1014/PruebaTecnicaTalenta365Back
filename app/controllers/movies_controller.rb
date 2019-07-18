@@ -3,10 +3,10 @@ class MoviesController < ApplicationController
 
   # GET /movies
   def index
-    if !params[:filter_day].blank?
-      @movies = Movie.by_day(params[:filter_day])
+    if !params[:date_start].blank? && !params[:date_end].blank?
+      @movies = Movie.with_count_reservations_by_day(params[:date_start], params[:date_end])
     else
-      @movies = Movie.all.order("id")
+      @movies = Movie.with_count_reservations.order("id")
     end
 
     render json: @movies
@@ -50,6 +50,6 @@ class MoviesController < ApplicationController
 
     # Only allow a trusted parameter "white list" through.
     def movie_params
-      params.permit(:name, :description, :url, :days)
+      params.permit(:name, :description, :url, :day_start, :day_end)
     end
 end
